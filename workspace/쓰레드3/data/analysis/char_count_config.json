@@ -1,0 +1,8 @@
+{
+  "updated_at": "2026-03-31T09:40:00Z",
+  "optimal_min": 80,
+  "optimal_max": 120,
+  "hard_max": 200,
+  "analysis_note": "81-120자 중간값 조회수 1,350-1,600 최적, 300자+ 최악(324)",
+  "sample_size": 1709
+}

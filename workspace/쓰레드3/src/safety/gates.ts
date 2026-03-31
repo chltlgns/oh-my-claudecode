@@ -207,35 +207,57 @@ export async function gate8_captchaRisk(
 }
 
 /**
- * gate9: 정밀 글자수 체크 (데이터 기반)
+ * gate9: 정밀 글자수 체크 (데이터 기반, 동적)
  *
- * DB 분석 결과 (2026-03-31, 1,709 posts):
- *   81-120자 → 중간값 조회수 1,350~1,600 (최적)
- *   300자+  → 중간값 324 (최악)
+ * Seoyeon 분석 결과를 data/analysis/char_count_config.json에서 읽어
+ * 최적 범위를 동적으로 결정. 파일 없으면 기본값 사용.
  *
  * - optimalMin~optimalMax: 권장 범위 (warn)
- * - hardMax: 절대 상한 (block)
+ * - hardMax: 절대 상한 200 고정 (block)
  */
-export function gate9_preciseCharCount(
-  content: string,
-  { optimalMin = 80, optimalMax = 120, hardMax = 200 } = {},
-): GateResult {
+
+interface CharCountConfig {
+  optimal_min: number;
+  optimal_max: number;
+  hard_max: number;
+}
+
+function loadCharCountConfig(): CharCountConfig {
+  const defaults: CharCountConfig = { optimal_min: 80, optimal_max: 120, hard_max: 200 };
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const configPath = path.resolve(__dirname, '../../data/analysis/char_count_config.json');
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw);
+    return {
+      optimal_min: config.optimal_min ?? defaults.optimal_min,
+      optimal_max: config.optimal_max ?? defaults.optimal_max,
+      hard_max: 200, // 항상 200 고정
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+export function gate9_preciseCharCount(content: string): GateResult {
+  const { optimal_min, optimal_max, hard_max } = loadCharCountConfig();
   const charCount = [...content].length;
 
-  if (charCount > hardMax) {
+  if (charCount > hard_max) {
     return {
       gate: 'gate9_preciseCharCount',
       passed: false,
-      reason: `${charCount}자 — 최대 ${hardMax}자 초과 (최적 ${optimalMin}~${optimalMax}자)`,
+      reason: `${charCount}자 — 최대 ${hard_max}자 초과 (최적 ${optimal_min}~${optimal_max}자)`,
       severity: 'block',
     };
   }
 
-  if (charCount < optimalMin || charCount > optimalMax) {
+  if (charCount < optimal_min || charCount > optimal_max) {
     return {
       gate: 'gate9_preciseCharCount',
       passed: true,
-      reason: `${charCount}자 — 최적 범위(${optimalMin}~${optimalMax}자) 밖 (허용은 됨)`,
+      reason: `${charCount}자 — 최적 범위(${optimal_min}~${optimal_max}자) 밖 (허용은 됨)`,
       severity: 'warn',
     };
   }
